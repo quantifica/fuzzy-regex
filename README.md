@@ -15,7 +15,8 @@ A regular expression library for Node.js that allows for a configurable number o
 npm install @credit-app/fuzzy-regex
 ```
 
-> **Note:** This package includes native bindings and requires a C++ build toolchain. On first install, it will build the TRE library from source. Ensure you have `make`, a C++ compiler, and Python (for `node-gyp`) available on your system.
+> **Note:** This package includes native bindings and requires a C++ build toolchain. On first install, it will build the TRE library from source.
+> Ensure you have `autopoint autoconf automake gettext libtool`, a C++ compiler, and Python (for `node-gyp`) available on your system.
 
 ## Usage
 
