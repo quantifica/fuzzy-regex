@@ -1,6 +1,6 @@
 {
   "name": "fuzzy-regex",
-  "version": "1.0.5",
+  "version": "1.0.__PATCH_VERSION__",
   "type": "module",
   "gypfile": true,
   "main": "dist/index.cjs",
