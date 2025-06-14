@@ -7,6 +7,9 @@ export default defineConfig({
   splitting: false,
   sourcemap: true,
   clean: true,
+  // loader: {
+  //   ".node": "file",
+  // },
   esbuildOptions(options, context) {
     options.assetNames = "[name]";
   },

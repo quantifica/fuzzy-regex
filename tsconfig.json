@@ -15,7 +15,10 @@
     "isolatedModules": true,
     "noImplicitAny": true,
     "types": ["jest", "node"],
-    "declaration": true
+    "declaration": true,
+    "paths": {
+      "tre": ["./build/Release/tre.node"]
+    }
   },
   "include": ["src/*.ts", "src/*.d.ts"]
 }

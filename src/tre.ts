@@ -1,22 +1,20 @@
 import { createRequire } from "module";
-import { TreClass } from "./types";
+import TreAddon, { TreType } from "tre";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-let TreLib: any;
+let TreLib: TreType;
 
 try {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const addon = require("../build/Release/tre.node");
-  if (addon && typeof addon === "object") {
-    TreLib = addon.Tre;
+  if (TreAddon && typeof TreAddon === "object") {
+    TreLib = TreAddon.Tre;
   }
-  if (addon && typeof addon === "string") {
-    const require = createRequire(import.meta.url);
-    TreLib = require(addon).Tre;
+  if (TreAddon && typeof TreAddon === "string") {
+    TreLib = require(TreAddon).Tre;
   }
 } catch {
   const require = createRequire(import.meta.url);
-  TreLib = require("../build/Release/tre.node").Tre;
+  TreLib = require(TreAddon as unknown as string).Tre;
 }
 
-export const Tre = TreLib as typeof TreClass;
+export const Tre = TreLib;
