@@ -1,6 +1,7 @@
 import { defineConfig } from "tsup";
 
 export default defineConfig({
+  tsconfig: "tsconfig.json",
   entry: ["src/index.ts"],
   format: ["esm", "cjs"],
   dts: true,
@@ -8,5 +9,6 @@ export default defineConfig({
   sourcemap: true,
   esbuildOptions(options, context) {
     options.assetNames = "[name]";
+    options.publicPath = "../dist";
   },
 });

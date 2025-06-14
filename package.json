@@ -1,6 +1,6 @@
 {
   "name": "fuzzy-regex",
-  "version": "1.0.__PATCH_VERSION__",
+  "version": "1.0.5",
   "type": "module",
   "gypfile": true,
   "main": "dist/index.cjs",
@@ -43,7 +43,7 @@
     "README.md",
     "bindings",
     "binding.gyp",
-    "dist",
+    "dist/!(tre.node)",
     "vendor"
   ],
   "scripts": {
