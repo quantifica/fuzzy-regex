@@ -41,6 +41,7 @@
   "files": [
     "LICENSE",
     "README.md",
+    "bindings",
     "binding.gyp",
     "dist",
     "vendor"
