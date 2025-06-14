@@ -1,11 +1,9 @@
 import { TreClass } from "./types";
 import { createRequire } from "module";
 
-if (typeof require === "undefined") {
-  global.require = createRequire(import.meta.url);
-}
-
-const addon = require("../build/Release/tre.node");
+const require = createRequire(import.meta.url);
+const path = "./tre.node";
+const addon = require(path);
 
 let TreLib: typeof TreClass | undefined;
 

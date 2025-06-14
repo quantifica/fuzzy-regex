@@ -7,8 +7,7 @@ export default defineConfig({
   dts: true,
   splitting: false,
   sourcemap: true,
-  esbuildOptions(options, context) {
+  esbuildOptions(options) {
     options.assetNames = "[name]";
-    options.publicPath = "../dist";
   },
 });

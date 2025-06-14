@@ -43,7 +43,7 @@
     "README.md",
     "bindings",
     "binding.gyp",
-    "dist/!(tre.node)",
+    "dist",
     "vendor"
   ],
   "scripts": {
