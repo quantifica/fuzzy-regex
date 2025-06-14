@@ -1,20 +1,23 @@
+import { TreClass } from "./types";
 import { createRequire } from "module";
-import TreAddon, { TreType } from "tre";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let TreLib: TreType;
+if (typeof require === "undefined") {
+  global.require = createRequire(import.meta.url);
+}
 
-try {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  if (TreAddon && typeof TreAddon === "object") {
-    TreLib = TreAddon.Tre;
-  }
-  if (TreAddon && typeof TreAddon === "string") {
-    TreLib = require(TreAddon).Tre;
-  }
-} catch {
-  const require = createRequire(import.meta.url);
-  TreLib = require(TreAddon as unknown as string).Tre;
+const addon = require("../build/Release/tre.node");
+
+let TreLib: typeof TreClass | undefined;
+
+if (typeof addon === "object") {
+  TreLib = addon.Tre;
+}
+if (typeof addon === "string") {
+  TreLib = require(addon).Tre;
+}
+
+if (!TreLib) {
+  throw new Error("Failed to load tre");
 }
 
 export const Tre = TreLib;

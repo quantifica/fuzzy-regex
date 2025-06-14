@@ -1,4 +1,5 @@
 {
+  "rootDir": "./src",
   "compilerOptions": {
     "module": "esnext",
     "moduleResolution": "bundler",
@@ -16,9 +17,7 @@
     "noImplicitAny": true,
     "types": ["jest", "node"],
     "declaration": true,
-    "paths": {
-      "tre": ["./build/Release/tre.node"]
-    }
+    "baseUrl": "."
   },
-  "include": ["src/*.ts", "src/*.d.ts"]
+  "include": ["*.ts", "*.d.ts"]
 }
