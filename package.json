@@ -1,6 +1,6 @@
 {
   "name": "@credit-app/fuzzy-regex",
-  "version": "1.0.0",
+  "version": "1.0.__PATCH_VERSION__",
   "type": "module",
   "gypfile": true,
   "main": "dist/index.cjs",
@@ -11,7 +11,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/quantifica/fuzzy-regex.git"
+    "url": "git+https://github.com/quantifica/fuzzy-regex.git"
   },
   "author": "Quantifica",
   "license": "MIT",

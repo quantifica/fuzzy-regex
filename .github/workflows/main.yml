@@ -21,11 +21,12 @@ jobs:
       - run: npm run build
       - run: npm run test
       - name: Replace version number
-        run: |
-          sed -i "s/\"version\": \"([0-9]+\.[0-9]+\.)[0-9]+\"/\"version\": \"$1${{ github.run_number }}\"/" package.json
+        run: sed -i s#__PATCH_VERSION__#${{ github.run_number }}# package.json
+      - uses: nodef/npm-config.action@v1.0.0
+        with:
+          credentials: |-
+            registry.npmjs.org=${{secrets.NPM_TOKEN}}
       - run: npm publish
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - uses: ncipollo/release-action@v1
         with:
           commit: ${{ github.sha }}
