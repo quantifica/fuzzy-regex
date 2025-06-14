@@ -22,10 +22,7 @@ jobs:
       - run: npm run test
       - name: Replace version number
         run: sed -i s#__PATCH_VERSION__#${{ github.run_number }}# package.json
-      - uses: nodef/npm-config.action@v1.0.0
-        with:
-          credentials: |-
-            registry.npmjs.org=${{secrets.NPM_TOKEN}}
+      - run: npm config set //registry.npmjs.org/:_authToken ${{ secrets.NPM_TOKEN }}
       - run: npm publish
       - uses: ncipollo/release-action@v1
         with:
