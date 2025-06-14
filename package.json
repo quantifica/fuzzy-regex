@@ -9,6 +9,16 @@
   "engines": {
     "node": ">=18.0.0"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/quantifica/fuzzy-regex.git"
+  },
+  "author": "Quantifica",
+  "license": "MIT",
+  "homepage": "https://github.com/quantifica/fuzzy-regex",
+  "bugs": {
+    "url": "https://github.com/quantifica/fuzzy-regex/issues"
+  },
   "os": [
     "linux",
     "darwin"
