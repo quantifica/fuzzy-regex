@@ -29,7 +29,7 @@
   "scripts": {
     "build": "tsup",
     "preinstall": "ls ./vendor/tre/lib/.libs/regexec.o || (cd ./vendor/tre && ./utils/autogen.sh && ./configure && make)",
-    "postinstall": "ls ./build/Release/tre.node || node-gyp rebuild && cp ./build/Release/tre.node ./dist/esm && cp ./build/Release/tre.node ./dist/cjs",
+    "postinstall": "ls ./build/Release/tre.node || node-gyp rebuild",
     "prepublishOnly": "npm run preinstall && npm run postinstall && npm run build",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js"
   }
