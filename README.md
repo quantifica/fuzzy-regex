@@ -12,7 +12,7 @@ A regular expression library for Node.js that allows for a configurable number o
 ## Installation
 
 ```sh
-npm install @credit-app/fuzzy-regex
+npm install fuzzy-regex
 ```
 
 > **Note:** This package includes native bindings and requires a C++ build toolchain. On first install, it will build the TRE library from source.
@@ -21,8 +21,8 @@ npm install @credit-app/fuzzy-regex
 ## Usage
 
 ```js
-import { fuzzyRegex } from "@credit-app/fuzzy-regex";
-// or: const { fuzzyRegex } = require('@credit-app/fuzzy-regex');
+import { fuzzyRegex } from "fuzzy-regex";
+// or: const { fuzzyRegex } = require('fuzzy-regex');
 
 // Create a fuzzy regex (case-insensitive by default)
 const regex = fuzzyRegex("foo");

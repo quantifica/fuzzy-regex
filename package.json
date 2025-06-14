@@ -1,5 +1,5 @@
 {
-  "name": "@credit-app/fuzzy-regex",
+  "name": "fuzzy-regex",
   "version": "1.0.__PATCH_VERSION__",
   "type": "module",
   "gypfile": true,
