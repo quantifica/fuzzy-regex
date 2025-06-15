@@ -27,6 +27,11 @@ describe("fuzzyRegex", () => {
       expect(regex.test("wereally like toparty")).toBe(true);
     });
 
+    it("should default to 1 error per 5 characters", () => {
+      const regex = fuzzyRegex("lorem ipsum");
+      expect(regex.test("Lo4em 1psum dolor sit amet")).toBe(true);
+    });
+
     it("should allow overriding max errors", () => {
       const regex = fuzzyRegex("we really like to party");
       expect(regex.test("wereally like toparty", 1)).toBe(false);

@@ -7,6 +7,7 @@ A regular expression library for Node.js that allows for a configurable number o
 - Fuzzy matching with configurable error tolerance
 - Case-insensitive or case-sensitive matching
 - Drop-in replacement for many RegExp use cases
+- Initialize with JS RegExp, allowing easy transition and familiar syntax
 - Native performance via TRE C library
 
 ## Installation
@@ -43,6 +44,15 @@ const pageRegex = fuzzyRegex("page\\s+(\\d+)\\s+of\\s+(\\d+)");
 const result = pageRegex.exec("page I of 6");
 console.log(result[1]); // 'I'
 console.log(result[2]); // '6'
+
+// Initialize with JS RegExp
+const jsRegex = fuzzyRegex(/page\s+(\d+)\s+of\s+(\d+)/); // will be case-sensitive without `i` flag
+const jsResult = jsRegex.exec("page I of 6");
+console.log(jsResult[1]); // 'I'
+console.log(jsResult[2]); // '6'
+
+// Case sensitive param mismatch
+const regex = fuzzyRegex(/Foo/i, /* caseInsensitive: */ false); // this will throw
 ```
 
 ## API
@@ -55,6 +65,10 @@ console.log(result[2]); // '6'
 
 - `test(str, maxErrors?)`: Returns `true` if `str` matches `pattern` within the allowed number of errors
 - `exec(str, maxErrors?)`: Returns an array of matched groups or `null`
+
+For both methods, the default number of errors defaults to 1 per 5 characters (rounded) of the smaller of the pattern and test string.
+
+Example: `fuzzyRegex("lorem ipsem").test("Lo4em 1psum dolor sit amet"); // true, defaults to 2 allowed errors`
 
 ## Contributing
 
