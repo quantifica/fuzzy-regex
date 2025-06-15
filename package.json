@@ -9,6 +9,27 @@
   "engines": {
     "node": ">=18.0.0"
   },
+  "keywords": [
+    "fuzzy",
+    "regex",
+    "search",
+    "matching",
+    "pattern",
+    "string",
+    "substring",
+    "fuzzy-search",
+    "fuzzy-match",
+    "fuzzy-regex",
+    "fuzzy-regex-search",
+    "fuzzy-regex-match",
+    "fuzzy-regex-search-match",
+    "ocr",
+    "optical-character-recognition",
+    "ocr-regex",
+    "ocr-regex-search",
+    "ocr-regex-match",
+    "ocr-regex-search-match"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/quantifica/fuzzy-regex.git"
