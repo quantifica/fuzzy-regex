@@ -1,4 +1,4 @@
-import { fuzzyRegex } from ".";
+import { fuzzyRegex, fuzzyRegexWithMaxErrors } from ".";
 
 describe("fuzzyRegex", () => {
   describe("test", () => {
@@ -73,5 +73,31 @@ describe("fuzzyRegex", () => {
       expect(regex.exec("page I of 6")?.[1]).toEqual("I");
       expect(regex.exec("page I of 6")?.[2]).toEqual("6");
     });
+  });
+});
+
+describe("fuzzyRegexWithMaxErrors", () => {
+  it("should use the preset maxErrors for test", () => {
+    const regex = fuzzyRegexWithMaxErrors("we really like to party", 1);
+    expect(regex.test("wereally like toparty")).toBe(false);
+  });
+
+  it("should fallback to dynamic maxErrors when not preset", () => {
+    const regex = fuzzyRegexWithMaxErrors("we really like to party");
+    expect(regex.test("wereally like toparty")).toBe(true);
+  });
+
+  it("should return the fuzzy matched groups with exec", () => {
+    const regex = fuzzyRegexWithMaxErrors("page\\s+(\\d+)\\s+of\\s+(\\d+)");
+    expect(regex.exec("page I of 6")?.[1]).toEqual("I");
+    expect(regex.exec("page I of 6")?.[2]).toEqual("6");
+  });
+
+  it("toString should include the pattern label for string and RegExp", () => {
+    const strRegex = fuzzyRegexWithMaxErrors("foo");
+    expect(strRegex.toString()).toBe("fuzzyRegex<foo>");
+
+    const regExpRegex = fuzzyRegexWithMaxErrors(/foo/i);
+    expect(regExpRegex.toString()).toBe("fuzzyRegex</foo/i>");
   });
 });
