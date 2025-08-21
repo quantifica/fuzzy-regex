@@ -32,12 +32,13 @@ console.log(regex.test("moo")); // true (1 substitution allowed)
 console.log(regex.test("mow")); // false
 
 // Override case sensitivity
-const csRegex = fuzzyRegex("Foo", false);
+const csRegex = fuzzyRegex("Foo", { caseInsensitive: false });
 console.log(csRegex.test("foo")); // false
 
 // Control the maximum number of errors
-console.log(regex.test("foa", 2)); // true
-console.log(regex.test("faa", 1)); // false
+const regexWithErrors = fuzzyRegex("foo", { maxErr: 2 });
+console.log(regexWithErrors.test("foa")); // true
+console.log(regexWithErrors.test("faa")); // false
 
 // Use .exec to extract groups
 const pageRegex = fuzzyRegex("page\\s+(\\d+)\\s+of\\s+(\\d+)");
@@ -52,7 +53,7 @@ console.log(jsResult[1]); // 'I'
 console.log(jsResult[2]); // '6'
 
 // Case sensitive param mismatch
-const regex = fuzzyRegex(/Foo/i, { caseInsensitive: false }); // this will throw
+const mismatchRegex = fuzzyRegex(/Foo/i, { caseInsensitive: false }); // this will throw
 ```
 
 ## API
@@ -61,14 +62,14 @@ const regex = fuzzyRegex(/Foo/i, { caseInsensitive: false }); // this will throw
 
 - `pattern`: The regex pattern (string or RegExp)
 - `options`: Discussed below
-- Returns: `{ test(str, maxErrors?), exec(str, maxErrors?) }`
+- Returns: `{ test(str), exec(str) }`
 
-- `test(str, maxErrors?)`: Returns `true` if `str` matches `pattern` within the allowed number of errors
-- `exec(str, maxErrors?)`: Returns an array of matched groups or `null`
+- `test(str)`: Returns `true` if `str` matches `pattern` within the allowed number of errors (configured via options)
+- `exec(str)`: Returns an array of matched groups or `null`
 
-For both methods, the default number of errors defaults to 1 per 5 characters (rounded) of the smaller of the pattern and test string.
+For both methods, the default number of errors defaults to 1 per 10 characters (rounded) of the smaller of the pattern and test string.
 
-Example: `fuzzyRegex("lorem ipsem").test("Lo4em 1psum dolor sit amet"); // true, defaults to 2 allowed errors`
+Example: `fuzzyRegex("lorem ipsum").test("Lo4em 1psum dolor sit amet"); // true, defaults to 2 allowed errors`
 
 ## Options
 
