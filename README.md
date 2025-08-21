@@ -26,17 +26,17 @@ import { fuzzyRegex } from "fuzzy-regex";
 // or: const { fuzzyRegex } = require('fuzzy-regex');
 
 // Create a fuzzy regex (case-insensitive by default)
-const regex = fuzzyRegex("foo");
+const regex = fuzzyRegex("fooooo");
 
-console.log(regex.test("moo")); // true (1 substitution allowed)
-console.log(regex.test("mow")); // false
+console.log(regex.test("mooooo")); // true (1 substitution allowed)
+console.log(regex.test("moooow")); // false
 
 // Override case sensitivity
 const csRegex = fuzzyRegex("Foo", { caseInsensitive: false });
 console.log(csRegex.test("foo")); // false
 
 // Control the maximum number of errors
-const regexWithErrors = fuzzyRegex("foo", { maxErr: 2 });
+const regexWithErrors = fuzzyRegex("foo", { maxErr: 2, maxCost: 2, maxSubst: 2 });
 console.log(regexWithErrors.test("foa")); // true
 console.log(regexWithErrors.test("faa")); // false
 
