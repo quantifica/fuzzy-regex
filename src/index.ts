@@ -1,51 +1,78 @@
 import { Tre } from "./tre";
 
 export type FuzzyRegex = {
-  test: (str: string, maxErrors?: number) => boolean;
-  exec: (str: string, maxErrors?: number) => string[] | null;
+  test: (str: string) => boolean;
+  exec: (str: string) => string[] | null;
+  toString: () => string;
+};
+
+export type FuzzyRegexOptions = {
+  caseInsensitive?: boolean;
+  costIns?: number;
+  costDel?: number;
+  costSubst?: number;
+  maxCost?: number;
+  maxIns?: number;
+  maxDel?: number;
+  maxSubst?: number;
+  maxErr?: number;
 };
 
 export function fuzzyRegex(
   pattern: string | RegExp,
-  caseInsensitive?: boolean
+  options?: FuzzyRegexOptions
 ): FuzzyRegex {
   const patternString = pattern instanceof RegExp ? pattern.source : pattern;
   let insensitive = true;
-  if (caseInsensitive !== undefined) {
-    insensitive = caseInsensitive;
+  if (options?.caseInsensitive !== undefined) {
+    insensitive = options.caseInsensitive;
   } else if (pattern instanceof RegExp) {
     insensitive = pattern.ignoreCase;
   }
 
   if (
-    caseInsensitive !== undefined &&
+    options?.caseInsensitive !== undefined &&
     pattern instanceof RegExp &&
-    pattern.ignoreCase !== caseInsensitive
+    pattern.ignoreCase !== options.caseInsensitive
   ) {
     throw new Error("Case sensitivity mismatch");
   }
 
   const tre = new Tre(patternString, insensitive);
+
+  function getOptions(str: string): {
+    costIns: number;
+    costDel: number;
+    costSubst: number;
+    maxCost: number;
+    maxIns: number;
+    maxDel: number;
+    maxSubst: number;
+    maxErr: number;
+  } {
+    const min = Math.min(str.length, patternString.length);
+    const defaultMaxErrs = Math.floor(min / 10) + (min % 10 > 5 ? 1 : 0);
+    return {
+      costIns: options?.costIns ?? 1,
+      costDel: options?.costDel ?? 1,
+      costSubst: options?.costSubst ?? 1,
+      maxCost: options?.maxCost ?? defaultMaxErrs,
+      maxIns: options?.maxIns ?? defaultMaxErrs,
+      maxDel: options?.maxDel ?? defaultMaxErrs,
+      maxSubst: options?.maxSubst ?? defaultMaxErrs,
+      maxErr: options?.maxErr ?? defaultMaxErrs,
+    };
+  }
+
   return {
-    test: (str: string, maxErrors?: number): boolean => {
-      let errs = 0;
-      if (maxErrors === undefined) {
-        const min = Math.min(str.length, patternString.length);
-        errs = Math.floor(min / 5) + (min % 5 > 2 ? 1 : 0);
-      } else {
-        errs = maxErrors;
-      }
-      return tre.fuzzy(str, errs);
+    test: (str: string): boolean => {
+      return tre.fuzzy(str, getOptions(str));
     },
-    exec: (str: string, maxErrors?: number): string[] | null => {
-      let errs = 0;
-      if (maxErrors === undefined) {
-        const min = Math.min(str.length, patternString.length);
-        errs = Math.floor(min / 5) + (min % 5 > 2 ? 1 : 0);
-      } else {
-        errs = maxErrors;
-      }
-      return tre.fuzzyExec(str, errs);
+    exec: (str: string): string[] | null => {
+      return tre.fuzzyExec(str, getOptions(str));
+    },
+    toString: (): string => {
+      return patternString;
     },
   };
 }

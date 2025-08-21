@@ -52,15 +52,15 @@ console.log(jsResult[1]); // 'I'
 console.log(jsResult[2]); // '6'
 
 // Case sensitive param mismatch
-const regex = fuzzyRegex(/Foo/i, /* caseInsensitive: */ false); // this will throw
+const regex = fuzzyRegex(/Foo/i, { caseInsensitive: false }); // this will throw
 ```
 
 ## API
 
-### `fuzzyRegex(pattern: string | RegExp, caseInsensitive?: boolean): FuzzyRegex`
+### `fuzzyRegex(pattern: string | RegExp, options?: Options): FuzzyRegex`
 
 - `pattern`: The regex pattern (string or RegExp)
-- `caseInsensitive`: Optional, defaults to `true` unless a RegExp is passed
+- `options`: Discussed below
 - Returns: `{ test(str, maxErrors?), exec(str, maxErrors?) }`
 
 - `test(str, maxErrors?)`: Returns `true` if `str` matches `pattern` within the allowed number of errors
@@ -69,6 +69,18 @@ const regex = fuzzyRegex(/Foo/i, /* caseInsensitive: */ false); // this will thr
 For both methods, the default number of errors defaults to 1 per 5 characters (rounded) of the smaller of the pattern and test string.
 
 Example: `fuzzyRegex("lorem ipsem").test("Lo4em 1psum dolor sit amet"); // true, defaults to 2 allowed errors`
+
+## Options
+
+- `caseInsensitive`: Whether to do case insensitive matching. Default: `true`
+- `costIns`: The cost to insert one character where the regex was not expecting. Default: `1`
+- `costDel`: The cost to delete a character the regex was expecting. Default: `1`
+- `costSubst`: The cost the substitute an expected character for an unexpected character. Default: `1`
+- `maxCost`: The max cost allowed. Default: Based on string and regex length
+- `maxIns`: The maximum insertions allowed. Default: Based on string and regex length
+- `maxDel`: The maximum deletions allowed. Default: Based on string and regex length
+- `maxSubst`: The maximum substitutions allowed. Default: Based on string and regex length
+- `maxErr`: The maximum errors allowed. Same as max cost if costs are 1. Default: Based on string and regex length
 
 ## Contributing
 
