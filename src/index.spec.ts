@@ -121,11 +121,17 @@ describe("fuzzyRegex", () => {
       expect(regex.exec("nothing alike")).toBeNull();
     });
 
+    /* exec is declared string[] to stay interchangeable with RegExp-shaped
+       matcher interfaces, mirroring TypeScript's own RegExpExecArray. At runtime
+       a non-participating group really is undefined, matching RegExp. This test
+       pins that runtime behaviour so it is not "corrected" to match the type. */
     it("should return undefined for a group that did not participate", async () => {
       const regex = await fuzzyRegex("a(x)?b", { maxErr: 0, maxCost: 0 });
       const result = regex.exec("ab");
       expect(result?.[0]).toEqual("ab");
       expect(result?.[1]).toBeUndefined();
+      /* Same shape RegExp gives for the equivalent pattern. */
+      expect(/a(x)?b/.exec("ab")?.[1]).toBeUndefined();
     });
   });
 

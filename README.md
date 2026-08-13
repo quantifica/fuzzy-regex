@@ -95,7 +95,7 @@ This is the one part of the API that is not portable. A browser main thread refu
 - Rejects with a `SyntaxError` if `pattern` is not a valid POSIX extended regular expression.
 
 - `test(str)`: Returns `true` if `str` matches `pattern` within the allowed number of errors (configured via options)
-- `exec(str)`: Returns an array of the whole match followed by each capture group, or `null` if there is no match within the allowed number of errors. A group that did not participate in the match is `undefined`, as with `RegExp`.
+- `exec(str)`: Returns an array of the whole match followed by each capture group, or `null` if there is no match within the allowed number of errors. A group that did not participate in the match is `undefined`, as with `RegExp` — see [Optional groups](#optional-groups).
 - `toString()`: Returns the pattern source
 - `free()`: Releases the compiled pattern's WebAssembly memory. Optional — see [Memory](#memory).
 
@@ -132,6 +132,34 @@ Instantiates the WebAssembly module. Optional: `fuzzyRegex` calls it for you. Us
 - `maxDel`: The maximum deletions allowed. Default: Based on string and regex length
 - `maxSubst`: The maximum substitutions allowed. Default: Based on string and regex length
 - `maxErr`: The maximum errors allowed. Same as max cost if costs are 1. Default: Based on string and regex length
+
+## Optional groups
+
+`exec` is typed `string[] | null`, but a group that did not participate in the match is `undefined` at runtime:
+
+```js
+const regex = await fuzzyRegex("a(x)?b", { maxErr: 0, maxCost: 0 });
+regex.exec("ab"); // ["ab", undefined]
+```
+
+This is exactly what `RegExp` does, and the type is deliberately declared the same way `RegExp` is — TypeScript declares `RegExpExecArray extends Array<string>` despite the same runtime `undefined`. Matching that keeps `FuzzyRegex` assignable to the RegExp-shaped matcher interfaces this library is meant to drop into, instead of forcing a cast at every boundary.
+
+If your pattern has optional or alternated groups, guard before using them:
+
+```ts
+const groups = regex.exec(input);
+const maybe = groups?.[1] as string | undefined;
+if (maybe !== undefined) {
+  // ...
+}
+```
+
+Patterns whose groups always participate can index directly. If you would rather have the compiler enforce this, narrow it at your own boundary:
+
+```ts
+const exec = (str: string) =>
+  regex.exec(str) as (string | undefined)[] | null;
+```
 
 ## Memory
 
@@ -188,7 +216,7 @@ If your code is Node-only and you would rather not thread `await` through it, `f
 
 Everything else behaves the same, with these differences:
 
-- **`exec` returns `undefined` for a group that did not participate** in the match, matching `RegExp`. v2 could throw in that case.
+- **`exec` returns `undefined` for a group that did not participate** in the match, matching `RegExp`. v2 could throw in that case. See [Optional groups](#optional-groups).
 - **An invalid pattern rejects with a `SyntaxError`** carrying TRE's message. v2 threw a generic `Error` with a numeric code.
 - **Errors and offsets are counted in code points, not UTF-8 bytes.** A pattern or subject containing non-ASCII characters may now match where it did not before, because one such character costs one error instead of two or three.
 - **No build toolchain is required.** The `autopoint autoconf automake gettext libtool` / C++ compiler / Python prerequisites are gone, as is the `os` restriction to Linux and macOS. There are no runtime dependencies.

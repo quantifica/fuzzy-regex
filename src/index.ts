@@ -8,10 +8,26 @@ export type FuzzyRegex = {
   test: (str: string) => boolean;
   /**
    * The matched text and capture groups, or `null` if `str` does not match
-   * within the allowed number of errors. Index 0 is the whole match; a group
-   * that did not participate in the match is `undefined`, as with `RegExp`.
+   * within the allowed number of errors. Index 0 is the whole match.
+   *
+   * A group that did not participate in the match is `undefined` at runtime,
+   * exactly as with `RegExp` — so `/a(x)?b/` matching `"ab"` yields
+   * `["ab", undefined]`. The element type is nonetheless declared `string`,
+   * mirroring how TypeScript declares `RegExpExecArray extends Array<string>`
+   * for the same situation. That keeps this type interchangeable with the
+   * RegExp-shaped matcher interfaces this library is meant to drop into, at the
+   * cost of the same unsoundness `RegExp.exec` already has.
+   *
+   * If a pattern has optional or alternated groups, guard before using them:
+   *
+   * ```ts
+   * const groups = regex.exec(input);
+   * const maybe = groups?.[1] as string | undefined;
+   * ```
+   *
+   * Patterns whose groups always participate can index directly.
    */
-  exec: (str: string) => (string | undefined)[] | null;
+  exec: (str: string) => string[] | null;
   /** The pattern source. */
   toString: () => string;
   /**
@@ -203,15 +219,18 @@ function createRegex(
       assertLive();
       return module.test(state.handle, str, getParams(str));
     },
-    exec: (str: string): (string | undefined)[] | null => {
+    exec: (str: string): string[] | null => {
       assertLive();
+      /* TreModule.exec is honest that a non-participating group is undefined.
+         The cast is confined to this boundary; see the note on FuzzyRegex.exec
+         for why the public type matches RegExpExecArray instead. */
       return module.exec(
         state.handle,
         str,
         getParams(str),
         nsub,
         state.offsetsPtr
-      );
+      ) as string[] | null;
     },
     toString: (): string => patternString,
     free,
