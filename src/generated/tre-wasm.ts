@@ -5,7 +5,7 @@
  *   ./scripts/build-wasm.sh
  *
  * Source:  vendor/tre (TRE 0.9.0) + bindings/tre_wasm.c
- * Built:   4.0.23-git
+ * Built:   emcc 4.0.23-git
  * Size:    65937 bytes raw, 87916 bytes base64
  * SHA-256: e2f4c1e8ea561c9c0d8c05d2271d3a5b196f3889442d7323fdc4646f90df6596
  */

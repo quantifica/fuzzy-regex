@@ -30,6 +30,20 @@ fi
 echo "Building $OUT with $(emcc --version | head -1)"
 mkdir -p "$OUT_DIR"
 
+# Install our tre-config.h into the vendor tree, where ./configure used to
+# generate it.
+#
+# This cannot be done with -I. vendor/tre/local_includes/tre.h includes it as
+#   #include "../local_includes/tre-config.h"
+# and a quoted include is resolved against the including file's own directory
+# before any -I path is consulted, so the header has to physically exist at
+# vendor/tre/local_includes/tre-config.h. That path is listed in
+# vendor/tre/.gitignore, so writing it leaves the working tree clean.
+#
+# config.h needs no such treatment: TRE includes it as <config.h>, which does go
+# through -I, and vendor/tre is not on the include path.
+cp bindings/wasm/tre-config.h vendor/tre/local_includes/tre-config.h
+
 # TRE sources. tre-filter.c is excluded: it is not part of the library build
 # upstream, and xmalloc.c is only needed for TRE's own debug allocator, which
 # NDEBUG in config.h switches off.
@@ -73,8 +87,9 @@ emcc "${TRE_SOURCES[@]}" bindings/tre_wasm.c -o "$OUT" \
   -sFILESYSTEM=0 \
   -sDISABLE_EXCEPTION_CATCHING=1
 
-# -I bindings/wasm precedes the vendor include dirs so our checked-in
-# config.h / tre-config.h win over any left over from a native ./configure run.
+# -I bindings/wasm precedes the vendor include dirs so our checked-in config.h
+# wins over any left over from a ./configure run. tre-config.h is not resolved
+# through -I at all; see the cp above.
 
 echo "Built $OUT ($(wc -c <"$OUT" | tr -d ' ') bytes)"
 

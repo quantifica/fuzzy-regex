@@ -23,7 +23,11 @@ jobs:
       - uses: actions/checkout@v4
       - uses: mymindstorm/setup-emsdk@v14
         with:
-          version: latest
+          # Pinned rather than "latest": this job gates publishing, so an
+          # upstream Emscripten release must not be able to break a release on
+          # its own. Bump deliberately; the test step below is what validates a
+          # new version.
+          version: 6.0.6
       - uses: actions/setup-node@v4
         with:
           node-version: 22
