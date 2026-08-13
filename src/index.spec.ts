@@ -1,4 +1,4 @@
-import { fuzzyRegex, init } from ".";
+import { fuzzyRegex, fuzzyRegexSync, init, initSync } from ".";
 
 describe("fuzzyRegex", () => {
   describe("test", () => {
@@ -228,6 +228,93 @@ describe("fuzzyRegex", () => {
     it("should let a regex be created without calling init first", async () => {
       const regex = await fuzzyRegex("foo");
       expect(regex.test("foo")).toBe(true);
+    });
+
+    it("should share one module between the sync and async paths", async () => {
+      expect(initSync()).toBe(await init());
+      expect(await init()).toBe(initSync());
+    });
+
+    it("should ignore options once a module is cached", () => {
+      const module = initSync();
+      /* Documented behaviour: later options are ignored. If this recompiled, the
+         invalid bytes would throw a CompileError. */
+      expect(initSync({ module: new Uint8Array([1, 2, 3]) })).toBe(module);
+    });
+  });
+
+  /* fuzzyRegexSync is Node-only: synchronous WebAssembly compilation of a module
+     this size is refused on a browser main thread. */
+  describe("fuzzyRegexSync", () => {
+    it("should match without awaiting anything", () => {
+      const regex = fuzzyRegexSync("fooooo");
+      expect(regex.test("mooooo")).toBe(true);
+      expect(regex.test("mowooo")).toBe(false);
+    });
+
+    it("should work without any prior init call", () => {
+      /* Relies on module-level caching, so this only proves the lazy path when it
+         runs first; the assertion holds either way. */
+      expect(fuzzyRegexSync("foo").test("foo")).toBe(true);
+    });
+
+    it("should extract capture groups", () => {
+      const regex = fuzzyRegexSync("page\\s+(\\d+)\\s+of\\s+(\\d+)");
+      const result = regex.exec("page I of 6");
+      expect(result?.[0]).toEqual("page I of 6");
+      expect(result?.[1]).toEqual("I");
+      expect(result?.[2]).toEqual("6");
+    });
+
+    it("should honour options identically to the async entry point", () => {
+      expect(fuzzyRegexSync("foOooo", { caseInsensitive: false }).test("mooooo")).toBe(
+        false
+      );
+      expect(fuzzyRegexSync("we really like to party", { maxErr: 1 }).test(
+        "wereally like toparty"
+      )).toBe(false);
+    });
+
+    it("should throw synchronously on a case sensitivity mismatch", () => {
+      expect(() => fuzzyRegexSync(/foo/i, { caseInsensitive: false })).toThrow(
+        "Case sensitivity mismatch"
+      );
+    });
+
+    it("should throw a SyntaxError synchronously for an invalid pattern", () => {
+      expect(() => fuzzyRegexSync("a(")).toThrow(SyntaxError);
+    });
+
+    it("should support free() and reject use afterwards", () => {
+      const regex = fuzzyRegexSync("foo");
+      regex.free();
+      expect(() => regex.test("foo")).toThrow("has been freed");
+    });
+
+    it("should handle unicode the same way", () => {
+      expect(fuzzyRegexSync("ÉCOLE", { maxErr: 0, maxCost: 0 }).test("école")).toBe(
+        true
+      );
+      expect(fuzzyRegexSync("a(.)c", { maxErr: 0, maxCost: 0 }).exec("a👍c")?.[1]).toEqual(
+        "👍"
+      );
+    });
+
+    it("should produce results equivalent to the async entry point", async () => {
+      const cases: [string, string][] = [
+        ["fooooo", "mooooo"],
+        ["lorem ipsum", "Lo4em ipsum dolor sit amet"],
+        ["page\\s+(\\d+)", "page 12"],
+        ["café", "cafe"],
+      ];
+      for (const [pattern, subject] of cases) {
+        const asyncRegex = await fuzzyRegex(pattern);
+        const syncRegex = fuzzyRegexSync(pattern);
+        expect(syncRegex.test(subject)).toBe(asyncRegex.test(subject));
+        expect(syncRegex.exec(subject)).toEqual(asyncRegex.exec(subject));
+        asyncRegex.free();
+        syncRegex.free();
+      }
     });
   });
 

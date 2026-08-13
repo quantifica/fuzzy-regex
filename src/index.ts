@@ -1,6 +1,6 @@
-import { init, TreModule, type TreParams } from "./wasm";
+import { init, initSync, TreModule, type TreParams } from "./wasm";
 
-export { init };
+export { init, initSync };
 export type { InitOptions } from "./wasm";
 
 export type FuzzyRegex = {
@@ -79,21 +79,17 @@ function releaseState(module: TreModule, state: RegexState): void {
 }
 
 /**
- * Compiles a fuzzy regular expression.
+ * Resolves the pattern source and case sensitivity, and rejects a `RegExp` whose
+ * `i` flag contradicts an explicit `caseInsensitive` option.
  *
- * Async because it instantiates the WebAssembly module on first use, which
- * cannot be done synchronously on a browser main thread. Subsequent calls
- * resolve from a cached module. Use {@link init} to pre-warm.
- *
- * @param pattern POSIX extended regular expression, as a string or `RegExp`.
- *   Only a `RegExp`'s source and `i` flag are used; other flags are ignored.
- * @param options See {@link FuzzyRegexOptions}. Error allowances default to one
- *   per 10 characters of whichever is shorter, the pattern or the subject.
+ * Deliberately separate from module instantiation so both entry points validate
+ * their arguments identically, and so the async one reports a bad argument
+ * without having compiled anything.
  */
-export async function fuzzyRegex(
+function resolvePattern(
   pattern: string | RegExp,
   options?: FuzzyRegexOptions
-): Promise<FuzzyRegex> {
+): { patternString: string; insensitive: boolean } {
   const patternString = pattern instanceof RegExp ? pattern.source : pattern;
   let insensitive = true;
   if (options?.caseInsensitive !== undefined) {
@@ -110,7 +106,59 @@ export async function fuzzyRegex(
     throw new Error("Case sensitivity mismatch");
   }
 
-  const module = await init();
+  return { patternString, insensitive };
+}
+
+/**
+ * Compiles a fuzzy regular expression.
+ *
+ * Async because it instantiates the WebAssembly module on first use, which
+ * cannot be done synchronously on a browser main thread. Subsequent calls
+ * resolve from a cached module. Use {@link init} to pre-warm, or
+ * {@link fuzzyRegexSync} on Node.
+ *
+ * @param pattern POSIX extended regular expression, as a string or `RegExp`.
+ *   Only a `RegExp`'s source and `i` flag are used; other flags are ignored.
+ * @param options See {@link FuzzyRegexOptions}. Error allowances default to one
+ *   per 10 characters of whichever is shorter, the pattern or the subject.
+ */
+export async function fuzzyRegex(
+  pattern: string | RegExp,
+  options?: FuzzyRegexOptions
+): Promise<FuzzyRegex> {
+  const { patternString, insensitive } = resolvePattern(pattern, options);
+  return createRegex(await init(), patternString, insensitive, options);
+}
+
+/**
+ * Synchronous {@link fuzzyRegex}, for Node.
+ *
+ * Instantiating WebAssembly synchronously is allowed in Node but not on a
+ * browser main thread, where compiling a module this size synchronously is
+ * refused. Calling this there throws with that explanation; use
+ * {@link fuzzyRegex} instead. Everything else, including the returned object, is
+ * identical. Both entry points share one wasm module, in either order.
+ *
+ * @param pattern POSIX extended regular expression, as a string or `RegExp`.
+ *   Only a `RegExp`'s source and `i` flag are used; other flags are ignored.
+ * @param options See {@link FuzzyRegexOptions}. Error allowances default to one
+ *   per 10 characters of whichever is shorter, the pattern or the subject.
+ */
+export function fuzzyRegexSync(
+  pattern: string | RegExp,
+  options?: FuzzyRegexOptions
+): FuzzyRegex {
+  const { patternString, insensitive } = resolvePattern(pattern, options);
+  return createRegex(initSync(), patternString, insensitive, options);
+}
+
+/** Shared by both entry points; everything below here is module-agnostic. */
+function createRegex(
+  module: TreModule,
+  patternString: string,
+  insensitive: boolean,
+  options?: FuzzyRegexOptions
+): FuzzyRegex {
   const handle = module.compile(patternString, insensitive);
 
   const nsub = module.nsub(handle);

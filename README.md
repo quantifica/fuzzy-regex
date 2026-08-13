@@ -9,6 +9,7 @@ A regular expression library that allows for a configurable number of mismatches
 - Drop-in replacement for many RegExp use cases
 - Initialize with JS RegExp, allowing easy transition and familiar syntax
 - Runs anywhere WebAssembly does: Node, browsers, web workers, Deno, Bun, edge runtimes
+- Async API everywhere, plus a synchronous one for Node
 - No native build step, no compiler, and zero runtime dependencies
 - Unicode-aware: errors and offsets are counted in code points, not bytes
 
@@ -69,6 +70,21 @@ import { fuzzyRegex, init } from "fuzzy-regex";
 await init(); // optional; pre-warms the wasm module
 ```
 
+### Synchronous API (Node)
+
+On Node, where WebAssembly can be instantiated synchronously, `fuzzyRegexSync` skips the promise entirely:
+
+```js
+import { fuzzyRegexSync } from "fuzzy-regex";
+
+const regex = fuzzyRegexSync("fooooo");
+console.log(regex.test("mooooo")); // true
+```
+
+It takes the same arguments as `fuzzyRegex`, returns the same object, and shares the same underlying WebAssembly module — mixing the two in one program instantiates once, in either order. Errors that `fuzzyRegex` rejects with, `fuzzyRegexSync` throws.
+
+This is the one part of the API that is not portable. A browser main thread refuses to compile a module this size synchronously, so calling it there throws and tells you to use `fuzzyRegex` instead. Use it in Node scripts, CLIs, and servers; use `fuzzyRegex` in anything that also has to run in a browser.
+
 ## API
 
 ### `fuzzyRegex(pattern: string | RegExp, options?: Options): Promise<FuzzyRegex>`
@@ -93,9 +109,17 @@ regex.test("Lo4em ipsum dolor sit amet"); // true  - 1 substitution
 regex.test("Lo4em 1psum dolor sit amet"); // false - 2 substitutions, over the budget
 ```
 
+### `fuzzyRegexSync(pattern: string | RegExp, options?: Options): FuzzyRegex`
+
+**Node only.** Identical to `fuzzyRegex` but returns the `FuzzyRegex` directly instead of a promise, and throws where `fuzzyRegex` rejects. Throws if the runtime refuses synchronous WebAssembly compilation, which a browser main thread does for a module this size.
+
 ### `init(options?: InitOptions): Promise<TreModule>`
 
 Instantiates the WebAssembly module. Optional: `fuzzyRegex` calls it for you. Use it to pre-warm, or to supply your own binary via `init({ module })`, which accepts an already-compiled `WebAssembly.Module` (useful for sharing one compilation across workers) or raw bytes. The result is cached, so repeated calls return the same module and ignore later options.
+
+### `initSync(options?: InitOptions): TreModule`
+
+**Node only.** Synchronous `init`, with the same caching. `init` and `initSync` share one module in either order, so a program that mixes the sync and async entry points still instantiates only once.
 
 ## Options
 
@@ -153,6 +177,13 @@ v2 was a Node-only native addon built with `node-gyp`. v3 is WebAssembly and the
 ```diff
 - const regex = fuzzyRegex("fooooo");
 + const regex = await fuzzyRegex("fooooo");
+```
+
+If your code is Node-only and you would rather not thread `await` through it, `fuzzyRegexSync` keeps the v2 call shape:
+
+```diff
+- const regex = fuzzyRegex("fooooo");
++ const regex = fuzzyRegexSync("fooooo");
 ```
 
 Everything else behaves the same, with these differences:

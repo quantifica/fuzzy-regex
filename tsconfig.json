@@ -3,7 +3,9 @@
     "module": "esnext",
     "moduleResolution": "bundler",
     "target": "es2021",
-    "lib": ["es2021", "dom"],
+    /* es2022 for `new Error(msg, { cause })`; dom for WebAssembly, TextDecoder
+       and atob. Emit stays at es2021 syntax. */
+    "lib": ["es2022", "dom"],
     "allowJs": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,

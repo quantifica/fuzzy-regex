@@ -381,6 +381,9 @@ function decodeBase64(base64: string): Uint8Array {
   );
 }
 
+/* The single module instance, once one exists. `init` and `initSync` share it so
+   a program that mixes them does not end up with two wasm heaps. */
+let resolved: TreModule | undefined;
 let modulePromise: Promise<TreModule> | undefined;
 
 /**
@@ -391,27 +394,65 @@ let modulePromise: Promise<TreModule> | undefined;
  * later options.
  */
 export function init(options?: InitOptions): Promise<TreModule> {
+  if (resolved !== undefined) {
+    return Promise.resolve(resolved);
+  }
   if (modulePromise === undefined) {
-    modulePromise = instantiate(options).catch((error: unknown) => {
-      /* Don't cache a failure; a later call should be able to retry. */
-      modulePromise = undefined;
-      throw error;
-    });
+    modulePromise = instantiate(options)
+      .then((treModule) => {
+        /* initSync may have produced a module while this was in flight. Keep the
+           one already published and let this instance be collected, so callers
+           never see two. */
+        if (resolved !== undefined) {
+          return resolved;
+        }
+        resolved = treModule;
+        return treModule;
+      })
+      .catch((error: unknown) => {
+        /* Don't cache a failure; a later call should be able to retry. */
+        modulePromise = undefined;
+        throw error;
+      });
   }
   return modulePromise;
 }
 
-async function instantiate(options?: InitOptions): Promise<TreModule> {
-  /* Assigned before instantiation completes, but the import can only be called
-     from wasm code, which cannot run until after that. */
-  let treModule: TreModule | undefined;
-  const imports: WebAssembly.Imports = {
+/**
+ * Synchronous {@link init}, for Node and other runtimes that permit synchronous
+ * WebAssembly compilation. Throws on a browser main thread; see
+ * {@link fuzzyRegexSync} in the package entry point.
+ *
+ * Shares its result with {@link init}, in either order.
+ */
+export function initSync(options?: InitOptions): TreModule {
+  if (resolved === undefined) {
+    resolved = instantiateSync(options);
+    /* Publish to the async path too, so a later init() does not compile again. */
+    modulePromise = Promise.resolve(resolved);
+  }
+  return resolved;
+}
+
+/**
+ * The memory-growth import needs the TreModule it will refresh, which does not
+ * exist until instantiation returns. It closes over this slot instead. Wasm code
+ * cannot run before instantiation completes, so the slot is always populated by
+ * the time the callback can fire.
+ */
+function makeImports(slot: { module?: TreModule }): WebAssembly.Imports {
+  return {
     env: {
       emscripten_notify_memory_growth: (): void => {
-        treModule?.refreshViews();
+        slot.module?.refreshViews();
       },
     },
   };
+}
+
+async function instantiate(options?: InitOptions): Promise<TreModule> {
+  const slot: { module?: TreModule } = {};
+  const imports = makeImports(slot);
 
   const source = options?.module;
   let instance: WebAssembly.Instance;
@@ -423,6 +464,46 @@ async function instantiate(options?: InitOptions): Promise<TreModule> {
       .instance;
   }
 
-  treModule = new TreModule(instance);
-  return treModule;
+  slot.module = new TreModule(instance);
+  return slot.module;
+}
+
+function instantiateSync(options?: InitOptions): TreModule {
+  const slot: { module?: TreModule } = {};
+  const imports = makeImports(slot);
+
+  const source = options?.module;
+  const compiled =
+    source instanceof WebAssembly.Module
+      ? source
+      : compileSync(source ?? decodeBase64(TRE_WASM_BASE64));
+
+  slot.module = new TreModule(new WebAssembly.Instance(compiled, imports));
+  return slot.module;
+}
+
+function compileSync(bytes: ArrayBuffer | Uint8Array): WebAssembly.Module {
+  try {
+    /* Cast as in instantiate(): lib.dom's BufferSource excludes views backed by a
+       SharedArrayBuffer, which WebAssembly.Module does in fact accept. */
+    return new WebAssembly.Module(bytes as BufferSource);
+  } catch (cause) {
+    /* A CompileError means the bytes themselves are not a valid module, which is
+       only reachable when a caller supplied their own. Report that as-is rather
+       than blaming the environment. */
+    if (cause instanceof WebAssembly.CompileError) {
+      throw cause;
+    }
+    /* Anything else is the environment refusing a synchronous compile. Browsers
+       reject one over 4 KB on the main thread (a RangeError) and this module is
+       ~64 KB. Nothing can be done about that here, so point at the async API
+       instead of surfacing a bare RangeError. */
+    throw new Error(
+      "fuzzy-regex: synchronous WebAssembly compilation was refused by this " +
+        "runtime. It is only available where compiling synchronously is allowed, " +
+        "such as Node; a browser main thread disallows it for a module this " +
+        "size. Use `await fuzzyRegex(...)`, or `await init()` once at startup.",
+      { cause }
+    );
+  }
 }
