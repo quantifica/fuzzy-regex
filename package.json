@@ -1,11 +1,18 @@
 {
   "name": "fuzzy-regex",
-  "version": "2.0.__PATCH_VERSION__",
+  "version": "3.0.__PATCH_VERSION__",
   "type": "module",
-  "gypfile": true,
   "main": "dist/index.cjs",
   "module": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "sideEffects": false,
   "engines": {
     "node": ">=18.0.0"
   },
@@ -15,8 +22,8 @@
     "search",
     "matching",
     "pattern",
-    "string",
-    "substring",
+    "wasm",
+    "webassembly",
     "fuzzy-search",
     "fuzzy-match",
     "fuzzy-regex",
@@ -40,13 +47,6 @@
   "bugs": {
     "url": "https://github.com/quantifica/fuzzy-regex/issues"
   },
-  "os": [
-    "linux",
-    "darwin"
-  ],
-  "dependencies": {
-    "node-addon-api": "^8.4.0"
-  },
   "devDependencies": {
     "@types/jest": "^29.5.14",
     "@types/node": "^22.13.10",
@@ -56,22 +56,16 @@
     "tsup": "^8.5.0",
     "typescript": "^5.8.3"
   },
-  "optionalDependencies": {
-    "@rollup/rollup-linux-x64-gnu": "4.43.0"
-  },
   "files": [
     "LICENSE",
     "README.md",
-    "bindings",
-    "binding.gyp",
-    "dist",
-    "vendor"
+    "dist"
   ],
   "scripts": {
     "build": "tsup",
-    "preinstall": "ls ./vendor/tre/lib/.libs/regexec.o || (cd ./vendor/tre && ./utils/autogen.sh && ./configure && make)",
-    "postinstall": "(ls ./build/Release/tre.node || node-gyp rebuild) && (cp ./build/Release/tre.node ./dist/tre.node || true)",
-    "prepublishOnly": "npm run preinstall && npm run postinstall && npm run build",
+    "build:wasm": "./scripts/build-wasm.sh",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build",
     "test": "node --experimental-vm-modules --no-warnings node_modules/jest/bin/jest.js --config jest.config.ts"
   }
 }

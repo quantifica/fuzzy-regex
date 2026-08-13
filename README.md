@@ -1,6 +1,6 @@
 # fuzzy-regex
 
-A regular expression library for Node.js that allows for a configurable number of mismatches (fuzzy matching), powered by the high-performance [TRE](https://laurikari.net/tre/) regex engine. This package supports both ESM and CommonJS, and provides a simple API for fuzzy string matching with regular expressions.
+A regular expression library that allows for a configurable number of mismatches (fuzzy matching), powered by the high-performance [TRE](https://laurikari.net/tre/) regex engine compiled to WebAssembly. This package supports both ESM and CommonJS, and provides a simple API for fuzzy string matching with regular expressions.
 
 ## Features
 
@@ -8,7 +8,9 @@ A regular expression library for Node.js that allows for a configurable number o
 - Case-insensitive or case-sensitive matching
 - Drop-in replacement for many RegExp use cases
 - Initialize with JS RegExp, allowing easy transition and familiar syntax
-- Native performance via TRE C library
+- Runs anywhere WebAssembly does: Node, browsers, web workers, Deno, Bun, edge runtimes
+- No native build step, no compiler, and zero runtime dependencies
+- Unicode-aware: errors and offsets are counted in code points, not bytes
 
 ## Installation
 
@@ -16,8 +18,7 @@ A regular expression library for Node.js that allows for a configurable number o
 npm install fuzzy-regex
 ```
 
-> **Note:** This package includes native bindings and requires a C++ build toolchain. On first install, it will build the TRE library from source.
-> Ensure you have `autopoint autoconf automake gettext libtool`, a C++ compiler, and Python (for `node-gyp`) available on your system.
+The TRE engine ships prebuilt as a ~64 KB WebAssembly module embedded in the bundle, so there is nothing to compile on install and no `.wasm` file to serve, copy, or configure a bundler for.
 
 ## Usage
 
@@ -26,50 +27,75 @@ import { fuzzyRegex } from "fuzzy-regex";
 // or: const { fuzzyRegex } = require('fuzzy-regex');
 
 // Create a fuzzy regex (case-insensitive by default)
-const regex = fuzzyRegex("fooooo");
+const regex = await fuzzyRegex("fooooo");
 
 console.log(regex.test("mooooo")); // true (1 substitution allowed)
 console.log(regex.test("moooow")); // false
 
 // Override case sensitivity
-const csRegex = fuzzyRegex("Foo", { caseInsensitive: false });
+const csRegex = await fuzzyRegex("Foo", { caseInsensitive: false });
 console.log(csRegex.test("foo")); // false
 
 // Control the maximum number of errors
-const regexWithErrors = fuzzyRegex("foo", { maxErr: 2, maxCost: 2, maxSubst: 2 });
-console.log(regexWithErrors.test("foa")); // true
-console.log(regexWithErrors.test("faa")); // false
+const regexWithErrors = await fuzzyRegex("foo", { maxErr: 2, maxCost: 2, maxSubst: 2 });
+console.log(regexWithErrors.test("foa")); // true (1 substitution)
+console.log(regexWithErrors.test("faa")); // true (2 substitutions)
+console.log(regexWithErrors.test("aaa")); // false (3 substitutions, over the budget)
 
 // Use .exec to extract groups
-const pageRegex = fuzzyRegex("page\\s+(\\d+)\\s+of\\s+(\\d+)");
+const pageRegex = await fuzzyRegex("page\\s+(\\d+)\\s+of\\s+(\\d+)");
 const result = pageRegex.exec("page I of 6");
+console.log(result[0]); // 'page I of 6'
 console.log(result[1]); // 'I'
 console.log(result[2]); // '6'
 
 // Initialize with JS RegExp
-const jsRegex = fuzzyRegex(/page\s+(\d+)\s+of\s+(\d+)/); // will be case-sensitive without `i` flag
+const jsRegex = await fuzzyRegex(/page\s+(\d+)\s+of\s+(\d+)/); // will be case-sensitive without `i` flag
 const jsResult = jsRegex.exec("page I of 6");
 console.log(jsResult[1]); // 'I'
 console.log(jsResult[2]); // '6'
 
 // Case sensitive param mismatch
-const mismatchRegex = fuzzyRegex(/Foo/i, { caseInsensitive: false }); // this will throw
+const mismatchRegex = await fuzzyRegex(/Foo/i, { caseInsensitive: false }); // this will reject
+```
+
+`fuzzyRegex` is async because it instantiates the WebAssembly module on first use, which cannot be done synchronously on a browser main thread. Only the first call pays that cost; every later call resolves from the cached module. Matching itself (`test`, `exec`) is synchronous.
+
+To move the one-time instantiation somewhere convenient, such as app startup, call `init` up front:
+
+```js
+import { fuzzyRegex, init } from "fuzzy-regex";
+
+await init(); // optional; pre-warms the wasm module
 ```
 
 ## API
 
-### `fuzzyRegex(pattern: string | RegExp, options?: Options): FuzzyRegex`
+### `fuzzyRegex(pattern: string | RegExp, options?: Options): Promise<FuzzyRegex>`
 
-- `pattern`: The regex pattern (string or RegExp)
+- `pattern`: The regex pattern (string or RegExp). POSIX extended syntax; for a `RegExp`, only `source` and the `i` flag are used.
 - `options`: Discussed below
-- Returns: `{ test(str), exec(str) }`
+- Returns: `Promise<{ test(str), exec(str), toString(), free() }>`
+- Rejects with a `SyntaxError` if `pattern` is not a valid POSIX extended regular expression.
 
 - `test(str)`: Returns `true` if `str` matches `pattern` within the allowed number of errors (configured via options)
-- `exec(str)`: Returns an array of matched groups or `null`
+- `exec(str)`: Returns an array of the whole match followed by each capture group, or `null` if there is no match within the allowed number of errors. A group that did not participate in the match is `undefined`, as with `RegExp`.
+- `toString()`: Returns the pattern source
+- `free()`: Releases the compiled pattern's WebAssembly memory. Optional — see [Memory](#memory).
 
-For both methods, the default number of errors defaults to 1 per 10 characters (rounded) of the smaller of the pattern and test string.
+For both matching methods, the default number of errors defaults to 1 per 10 characters (rounded) of the smaller of the pattern and test string.
 
-Example: `fuzzyRegex("lorem ipsum").test("Lo4em 1psum dolor sit amet"); // true, defaults to 2 allowed errors`
+Example: `"lorem ipsum"` is 11 characters and the subject below is longer, so the budget is 1 error:
+
+```js
+const regex = await fuzzyRegex("lorem ipsum");
+regex.test("Lo4em ipsum dolor sit amet"); // true  - 1 substitution
+regex.test("Lo4em 1psum dolor sit amet"); // false - 2 substitutions, over the budget
+```
+
+### `init(options?: InitOptions): Promise<TreModule>`
+
+Instantiates the WebAssembly module. Optional: `fuzzyRegex` calls it for you. Use it to pre-warm, or to supply your own binary via `init({ module })`, which accepts an already-compiled `WebAssembly.Module` (useful for sharing one compilation across workers) or raw bytes. The result is cached, so repeated calls return the same module and ignore later options.
 
 ## Options
 
@@ -83,6 +109,60 @@ Example: `fuzzyRegex("lorem ipsum").test("Lo4em 1psum dolor sit amet"); // true,
 - `maxSubst`: The maximum substitutions allowed. Default: Based on string and regex length
 - `maxErr`: The maximum errors allowed. Same as max cost if costs are 1. Default: Based on string and regex length
 
+## Memory
+
+A compiled pattern lives in the WebAssembly heap. Dropping a `FuzzyRegex` releases it automatically once the garbage collector runs, via `FinalizationRegistry`, so most code never needs to think about this.
+
+Finalizers are not guaranteed to run promptly, so if you compile many short-lived patterns, release them eagerly:
+
+```js
+const regex = await fuzzyRegex(pattern);
+try {
+  return regex.test(input);
+} finally {
+  regex.free();
+}
+```
+
+`Symbol.dispose` is also set, so on runtimes with explicit resource management you can write `using regex = await fuzzyRegex(pattern);` instead. Using a regex after `free()` throws; calling `free()` more than once is a no-op.
+
+Reuse a compiled pattern across many inputs where you can — compiling is the expensive part, and `test`/`exec` allocate nothing per call.
+
+## Unicode
+
+Strings are matched as sequences of Unicode code points, so one accented or non-Latin character counts as one error rather than one per UTF-8 byte, and offsets in `exec` results line up with JavaScript string indices:
+
+```js
+const regex = await fuzzyRegex("café", { maxErr: 1, maxCost: 1, maxSubst: 1 });
+console.log(regex.test("cafe")); // true — a single substitution
+
+const emoji = await fuzzyRegex("👍 (\\w+)");
+console.log(emoji.exec("👍 yes")[1]); // 'yes'
+```
+
+Case-insensitive matching also covers non-ASCII letters, so `ÉCOLE` matches `école`.
+
+## Performance
+
+Matching runs about 1.3–1.8× slower than the equivalent native build, which is the usual cost of WebAssembly versus compiled machine code. In exchange the package needs no compiler at install time and runs on platforms a native addon cannot reach at all. Reusing compiled patterns matters far more than the engine backend; compiling is roughly as expensive as thousands of matches.
+
+## Migrating from v2
+
+v2 was a Node-only native addon built with `node-gyp`. v3 is WebAssembly and the API is async:
+
+```diff
+- const regex = fuzzyRegex("fooooo");
++ const regex = await fuzzyRegex("fooooo");
+```
+
+Everything else behaves the same, with these differences:
+
+- **`exec` returns `undefined` for a group that did not participate** in the match, matching `RegExp`. v2 could throw in that case.
+- **An invalid pattern rejects with a `SyntaxError`** carrying TRE's message. v2 threw a generic `Error` with a numeric code.
+- **Errors and offsets are counted in code points, not UTF-8 bytes.** A pattern or subject containing non-ASCII characters may now match where it did not before, because one such character costs one error instead of two or three.
+- **No build toolchain is required.** The `autopoint autoconf automake gettext libtool` / C++ compiler / Python prerequisites are gone, as is the `os` restriction to Linux and macOS. There are no runtime dependencies.
+- **`free()` is available** to release a compiled pattern eagerly. Not required; see [Memory](#memory).
+
 ## Contributing
 
 Contributions are welcome! Please open an issue or pull request on GitHub. To develop locally:
@@ -93,8 +173,20 @@ npm install
 npm test
 ```
 
-- Ensure you have a working C++ build environment
-- Tests are written with Jest (`npm test`)
+Tests are written with Jest (`npm test`) and run against the committed WebAssembly artifact, so the common case needs no C toolchain.
+
+### Rebuilding the WebAssembly module
+
+Only needed if you change `bindings/tre_wasm.c`, `bindings/wasm/*.h`, or `vendor/tre`. Requires the [Emscripten SDK](https://emscripten.org/docs/getting_started/downloads.html) (`brew install emscripten` on macOS):
+
+```sh
+npm run build:wasm   # regenerates src/generated/tre-wasm.ts
+npm test
+```
+
+`src/generated/tre-wasm.ts` embeds the compiled module as base64 and is committed, which is why publishing needs no Emscripten. Commit it alongside your source change; CI rebuilds it and runs the suite against the result to catch a stale artifact.
+
+TRE's own autotools build is not used. Its `configure` script exists only to probe the host libc, and Emscripten's sysroot is a fixed target, so those results are checked in as `bindings/wasm/config.h` and `bindings/wasm/tre-config.h`.
 
 ## License
 
@@ -103,4 +195,5 @@ MIT License. See [LICENSE](./LICENSE) for details.
 ## Acknowledgments
 
 - [TRE](https://laurikari.net/tre/) - The underlying approximate regex engine
+- [Emscripten](https://emscripten.org/) - The toolchain that compiles TRE to WebAssembly
 - Inspired by the need for fast, flexible fuzzy matching in Node.js

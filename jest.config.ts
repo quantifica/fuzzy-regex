@@ -5,7 +5,6 @@ export default {
   extensionsToTreatAsEsm: [".ts"],
   moduleNameMapper: {
     "^(\\.{1,2}/.*)\\.js$": "$1",
-    "./tre.node": "<rootDir>/build/Release/tre.node",
   },
   transformIgnorePatterns: ["node_modules"],
   transform: {

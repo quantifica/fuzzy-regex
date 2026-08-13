@@ -1,11 +1,9 @@
 {
-  "rootDir": "./src",
   "compilerOptions": {
     "module": "esnext",
     "moduleResolution": "bundler",
-    "target": "esnext",
-    "jsx": "preserve",
-    "jsxImportSource": "@emotion/react",
+    "target": "es2021",
+    "lib": ["es2021", "dom"],
     "allowJs": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
@@ -15,9 +13,10 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noImplicitAny": true,
+    "skipLibCheck": true,
     "types": ["jest", "node"],
     "declaration": true,
     "baseUrl": "."
   },
-  "include": ["*.ts", "*.d.ts"]
+  "include": ["src/**/*.ts", "*.ts"]
 }

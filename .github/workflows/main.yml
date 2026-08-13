@@ -6,20 +6,65 @@ on:
       - main
 
 jobs:
+  # The published package contains no native code: src/generated/tre-wasm.ts is
+  # committed, so publishing needs neither Emscripten nor a C toolchain. This job
+  # is what keeps that safe. It rebuilds the wasm from vendor/tre and runs the
+  # suite against the rebuilt artifact, so a change to bindings/tre_wasm.c or
+  # vendor/tre that was never regenerated fails here.
+  #
+  # The check is functional rather than a byte comparison: emcc output differs
+  # between toolchain versions, so requiring the committed bytes to match this
+  # runner's emcc would fail on an unrelated Emscripten bump. A byte difference
+  # is reported as a notice instead. The emcc version that produced the committed
+  # artifact is recorded in its header.
+  verify-wasm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: latest
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Rebuild wasm from source
+        run: ./scripts/build-wasm.sh
+      - name: Test against the freshly built wasm
+        run: npm run test
+      - name: Report whether the committed artifact matches this toolchain
+        run: |
+          if git diff --quiet -- src/generated/tre-wasm.ts; then
+            echo "src/generated/tre-wasm.ts is byte-identical to a fresh build."
+          else
+            echo "::notice::src/generated/tre-wasm.ts differs from a build with" \
+              "this runner's emcc. Tests pass against the rebuild, so this is" \
+              "expected after an Emscripten version change. Run" \
+              "./scripts/build-wasm.sh locally and commit if you want them to match."
+          fi
+
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install system dependencies
-        uses: tecolicom/actions-use-apt-tools@v1
-        with:
-          tools: autopoint autoconf automake gettext libtool
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm install
+      - run: npm ci
+      - run: npm run typecheck
       - run: npm run build
       - run: npm run test
+
+  publish:
+    needs: [verify-wasm, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm run build
       - name: Replace version number
         run: sed -i s#__PATCH_VERSION__#${{ github.run_number }}# package.json
       - run: npm config set //registry.npmjs.org/:_authToken ${{ secrets.NPM_TOKEN }}
@@ -27,5 +72,5 @@ jobs:
       - uses: ncipollo/release-action@v1
         with:
           commit: ${{ github.sha }}
-          tag: v1.0.${{ github.run_number }}
+          tag: v3.0.${{ github.run_number }}
           token: ${{ secrets.GITHUB_TOKEN }}

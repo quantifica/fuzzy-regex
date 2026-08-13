@@ -137,4 +137,8 @@ dist
 
 /build
 
+# Intermediate from scripts/build-wasm.sh. The committed artifact is
+# src/generated/tre-wasm.ts, which embeds this file as base64.
+/src/generated/tre.wasm
+
 .DS_Store
