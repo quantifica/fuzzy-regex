@@ -59,19 +59,46 @@ jobs:
       - run: npm run build
       - run: npm run test
 
+  # Publishes via npm trusted publishing (OIDC). There is no npm token: npm
+  # exchanges a short-lived GitHub OIDC token for publish credentials, so there
+  # is no long-lived secret to expire or leak. This requires a matching trusted
+  # publisher to be registered on npmjs.com for the fuzzy-regex package:
+  #
+  #   Package -> Settings -> Trusted Publisher -> GitHub Actions
+  #     Organization or user: quantifica
+  #     Repository:           fuzzy-regex
+  #     Workflow filename:    main.yml     <- basename only, must match this file
+  #     Environment:          (leave blank)
+  #
+  # npm does not validate that configuration when it is saved, so a mismatch in
+  # any of those fields surfaces only here, as a 404 on publish.
   publish:
     needs: [verify-wasm, build]
     runs-on: ubuntu-latest
+    permissions:
+      # Mints the OIDC token npm exchanges for publish credentials. Without it,
+      # npm finds no credentials and the registry answers 404.
+      id-token: write
+      # ncipollo/release-action below creates the tag and GitHub release.
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          # Required even without a token: this writes the .npmrc that points npm
+          # at the registry it should authenticate against.
+          registry-url: "https://registry.npmjs.org"
+      # Trusted publishing needs npm >= 11.5.1, which is newer than the npm
+      # bundled with Node 22. Pin the floor rather than inheriting whatever the
+      # runner ships, so a runner image change cannot silently break publishing.
+      - run: npm install -g npm@^11.5.1
       - run: npm ci
       - run: npm run build
       - name: Replace version number
         run: sed -i s#__PATCH_VERSION__#${{ github.run_number }}# package.json
-      - run: npm config set //registry.npmjs.org/:_authToken ${{ secrets.NPM_TOKEN }}
+      # No NODE_AUTH_TOKEN. npm detects the OIDC token and also generates
+      # provenance attestations automatically, so --provenance is not needed.
       - run: npm publish
       - uses: ncipollo/release-action@v1
         with:
